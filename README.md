@@ -43,6 +43,56 @@ Database đã được tự động chèn (seed) 3 tài khoản phân quyền kh
 - **Tài khoản 2 (Vận hành):** `operator` / `Operator@123` 
 - **Tài khoản 3 (Khách):** `viewer` / `Viewer@123` (Tài khoản này chỉ có quyền xem, bị khóa chức năng bật/tắt LED)
 
+### Chạy Flutter Mobile
+
+Điện thoại thật cùng Wi-Fi với laptop (mặc định dùng backend LAN):
+
+```bash
+cd D:\Quang\demo_chuong_5_lt\mobile-flutter
+flutter run
+```
+
+Android Emulator (dùng địa chỉ đặc biệt `10.0.2.2` để gọi máy host):
+
+```bash
+flutter run -d emulator-5554 --dart-define=API_BASE_URL=http://10.0.2.2:8080/api/v1
+```
+
+### Cảnh báo nhiệt độ cao
+
+Backend tạo một cảnh báo `HIGH_TEMPERATURE` khi telemetry thật vượt ngưỡng,
+cập nhật cảnh báo đang `ACTIVE` thay vì tạo bản ghi trùng, và chuyển nó sang
+`RESOLVED` khi nhiệt độ trở lại ngưỡng an toàn. Web và Mobile tự làm mới cảnh
+báo theo chu kỳ 5 giây.
+
+Ngưỡng mặc định là `31.0°C`. Có thể test bằng nhiệt độ phòng mà không sửa dữ
+liệu DHT22 bằng PowerShell:
+
+```powershell
+cd D:\Quang\demo_chuong_5_lt
+$env:HIGH_TEMPERATURE_THRESHOLD="25.0"
+docker compose up -d --force-recreate backend
+```
+
+Sau khi demo, đưa ngưỡng về mặc định:
+
+```powershell
+$env:HIGH_TEMPERATURE_THRESHOLD="31.0"
+docker compose up -d --force-recreate backend
+```
+
+Các API cảnh báo (cần Bearer JWT):
+
+- `GET /api/v1/alerts`
+- `GET /api/v1/alerts/active`
+- `GET /api/v1/devices/{deviceId}/alerts`
+
+Kiểm tra lịch sử trực tiếp trong PostgreSQL:
+
+```powershell
+docker exec iot_postgres psql -U iotuser -d iotdb -c "SELECT * FROM alerts ORDER BY created_at DESC;"
+```
+
 ---
 
 ## 3. Dừng hệ thống

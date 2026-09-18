@@ -1,11 +1,17 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService extends ChangeNotifier {
-  // Use 10.0.2.2 for Android emulator to access host localhost
-  final String baseUrl = 'http://10.0.2.2:8080/api/v1';
+  // Defaults to the laptop LAN address for a physical phone. Override for an
+  // Android emulator with:
+  // --dart-define=API_BASE_URL=http://10.0.2.2:8080/api/v1
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://192.168.50.174:8080/api/v1',
+  );
   String? _token;
   String? _role;
 
@@ -61,7 +67,7 @@ class ApiService extends ChangeNotifier {
       final response = await http.get(
         Uri.parse('$baseUrl/devices/$deviceId'),
         headers: {'Authorization': 'Bearer $_token'},
-      );
+      ).timeout(const Duration(seconds: 2));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -79,6 +85,27 @@ class ApiService extends ChangeNotifier {
       );
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
+      }
+    } catch (e) {
+      debugPrint(e.toString());
+    }
+    return null;
+  }
+
+  Future<List<Map<String, dynamic>>?> getDeviceAlerts(
+    String deviceId, {
+    int size = 10,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/devices/$deviceId/alerts?size=$size'),
+        headers: {'Authorization': 'Bearer $_token'},
+      ).timeout(const Duration(seconds: 3));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return (data['content'] as List<dynamic>)
+            .map((item) => Map<String, dynamic>.from(item as Map))
+            .toList();
       }
     } catch (e) {
       debugPrint(e.toString());

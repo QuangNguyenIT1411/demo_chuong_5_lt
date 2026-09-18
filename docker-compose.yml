@@ -53,6 +53,7 @@ services:
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-iotpass}
       - MQTT_BROKER_URL=tcp://emqx:1883
       - JWT_SECRET=${JWT_SECRET:-this_is_a_very_secret_key_for_jwt_signing_which_needs_to_be_at_least_256_bits_long}
+      - HIGH_TEMPERATURE_THRESHOLD=${HIGH_TEMPERATURE_THRESHOLD:-31.0}
     depends_on:
       postgres:
         condition: service_healthy

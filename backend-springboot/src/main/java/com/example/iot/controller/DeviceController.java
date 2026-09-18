@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -34,7 +35,9 @@ public class DeviceController {
 
     @GetMapping("/devices/{deviceId}")
     public ResponseEntity<Device> getDevice(@PathVariable String deviceId) {
-        return ResponseEntity.ok(deviceService.getDeviceByDeviceId(deviceId));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(deviceService.getDeviceByDeviceId(deviceId));
     }
 
     @GetMapping("/devices/{deviceId}/telemetry/latest")

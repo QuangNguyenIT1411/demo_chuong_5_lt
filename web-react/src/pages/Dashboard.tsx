@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Card, Typography, Grid, Switch, FormControlLabel, Paper, Box } from '@mui/material'
+import { Alert as MuiAlert, Card, Typography, Grid, Switch, FormControlLabel, Paper, Box, Chip, Stack } from '@mui/material'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import DeviceThermostatIcon from '@mui/icons-material/DeviceThermostat'
 import WaterDropIcon from '@mui/icons-material/WaterDrop'
@@ -24,6 +24,20 @@ interface Telemetry {
   recordedAt: string
 }
 
+interface TemperatureAlert {
+  id: string
+  deviceId: string
+  type: string
+  severity: string
+  message: string
+  temperature: number
+  threshold: number
+  status: 'ACTIVE' | 'RESOLVED'
+  createdAt: string
+  updatedAt: string
+  resolvedAt: string | null
+}
+
 const MetricCard = ({ title, value, unit, icon, color }: any) => (
   <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', p: 2, borderRadius: 2, boxShadow: 3 }}>
     <Box sx={{ p: 2, borderRadius: '50%', bgcolor: `${color}.light`, color: `${color}.main`, mr: 2 }}>
@@ -39,12 +53,20 @@ const MetricCard = ({ title, value, unit, icon, color }: any) => (
 export default function Dashboard() {
   const [device, setDevice] = useState<Device | null>(null)
   const [history, setHistory] = useState<Telemetry[]>([])
+  const [alertHistory, setAlertHistory] = useState<TemperatureAlert[]>([])
   const { role } = useAuth()
 
-  const fetchData = async () => {
+  const fetchDevice = async () => {
     try {
       const devRes = await api.get('/devices/esp32-001')
       setDevice(devRes.data)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const fetchTelemetry = async () => {
+    try {
       const histRes = await api.get('/devices/esp32-001/telemetry?size=20')
       setHistory(histRes.data.content.reverse())
     } catch (err) {
@@ -52,10 +74,39 @@ export default function Dashboard() {
     }
   }
 
+  const fetchAlerts = async () => {
+    try {
+      const alertsRes = await api.get('/devices/esp32-001/alerts?size=10')
+      setAlertHistory(alertsRes.data.content)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const fetchMonitoringData = async () => {
+    await Promise.all([fetchTelemetry(), fetchAlerts()])
+  }
+
+  const fetchData = async () => {
+    await Promise.all([fetchDevice(), fetchTelemetry(), fetchAlerts()])
+  }
+
   useEffect(() => {
     fetchData()
-    const interval = setInterval(fetchData, 5000)
-    return () => clearInterval(interval)
+    const statusInterval = setInterval(fetchDevice, 500)
+    const telemetryInterval = setInterval(fetchMonitoringData, 5000)
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') fetchData()
+    }
+    window.addEventListener('focus', fetchData)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+
+    return () => {
+      clearInterval(statusInterval)
+      clearInterval(telemetryInterval)
+      window.removeEventListener('focus', fetchData)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
   }, [])
 
   const toggleLed = async () => {
@@ -80,10 +131,22 @@ export default function Dashboard() {
   }))
 
   const latest = history[history.length - 1] || {} as any
+  const activeTemperatureAlert = alertHistory.find(
+    alert => alert.type === 'HIGH_TEMPERATURE' && alert.status === 'ACTIVE'
+  )
 
   return (
     <Box>
       <Typography variant="h4" mb={3} fontWeight="bold">Environment Overview</Typography>
+
+      {activeTemperatureAlert && (
+        <MuiAlert severity="warning" variant="filled" sx={{ mb: 3, borderRadius: 2 }}>
+          <Typography variant="h6" fontWeight="bold">⚠ CẢNH BÁO NHIỆT ĐỘ CAO</Typography>
+          <Typography>Nhiệt độ hiện tại: <b>{activeTemperatureAlert.temperature.toFixed(1)}°C</b></Typography>
+          <Typography>Ngưỡng: {activeTemperatureAlert.threshold.toFixed(1)}°C</Typography>
+          <Typography>Thiết bị: {activeTemperatureAlert.deviceId}</Typography>
+        </MuiAlert>
+      )}
       
       {/* Metrics Row */}
       <Grid container spacing={3} mb={4}>
@@ -162,6 +225,44 @@ export default function Dashboard() {
           </Paper>
         </Grid>
       </Grid>
+
+      <Paper sx={{ p: 3, mt: 3, borderRadius: 2, boxShadow: 3 }}>
+        <Typography variant="h6" mb={2} fontWeight="bold">Recent Alerts</Typography>
+        {alertHistory.length === 0 ? (
+          <Typography color="textSecondary">No alerts recorded.</Typography>
+        ) : (
+          <Stack spacing={1.5}>
+            {alertHistory.slice(0, 5).map(alert => (
+              <Box
+                key={alert.id}
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: { xs: 'flex-start', sm: 'center' },
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  gap: 1,
+                  p: 1.5,
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: 1
+                }}
+              >
+                <Box>
+                  <Typography fontWeight="bold">High Temperature · {alert.temperature.toFixed(1)}°C</Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    {format(new Date(alert.createdAt), 'dd/MM/yyyy HH:mm:ss')} · threshold {alert.threshold.toFixed(1)}°C
+                  </Typography>
+                </Box>
+                <Chip
+                  label={alert.status}
+                  color={alert.status === 'ACTIVE' ? 'warning' : 'success'}
+                  size="small"
+                />
+              </Box>
+            ))}
+          </Stack>
+        )}
+      </Paper>
     </Box>
   )
 }

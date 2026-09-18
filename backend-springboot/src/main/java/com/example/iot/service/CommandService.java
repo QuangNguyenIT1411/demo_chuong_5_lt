@@ -94,11 +94,16 @@ public class CommandService {
             command.setAcknowledgedAt(ack.getTimestamp() != null ? ack.getTimestamp() : ZonedDateTime.now());
             commandRepository.save(command);
             
-            // update device led state if applicable
-            if (ack.getLed() != null) {
+            // Any valid ACK proves the device is alive; LED state is optional.
+            if (ack.getDeviceId() != null) {
                 deviceRepository.findByDeviceId(ack.getDeviceId()).ifPresent(device -> {
-                    device.setLedState(ack.getLed());
-                    device.setUpdatedAt(ZonedDateTime.now());
+                    ZonedDateTime receivedAt = ZonedDateTime.now();
+                    if (ack.getLed() != null) {
+                        device.setLedState(ack.getLed());
+                    }
+                    device.setStatus("ONLINE");
+                    device.setLastSeenAt(receivedAt);
+                    device.setUpdatedAt(receivedAt);
                     deviceRepository.save(device);
                 });
             }

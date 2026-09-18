@@ -25,6 +25,17 @@ mqtt:
     username: ${MQTT_USERNAME:}
     password: ${MQTT_PASSWORD:}
 
+device:
+  presence:
+    timeout-ms: ${DEVICE_PRESENCE_TIMEOUT_MS:4000}
+    legacy-timeout-ms: ${DEVICE_PRESENCE_LEGACY_TIMEOUT_MS:7000}
+    heartbeat-confirmation-gap-ms: ${DEVICE_HEARTBEAT_CONFIRMATION_GAP_MS:3000}
+    check-interval-ms: ${DEVICE_PRESENCE_CHECK_INTERVAL_MS:500}
+
+iot:
+  alert:
+    high-temperature-threshold: ${HIGH_TEMPERATURE_THRESHOLD:31.0}
+
 jwt:
   secret: ${JWT_SECRET:this_is_a_very_secret_key_for_jwt_signing_which_needs_to_be_at_least_256_bits_long}
   expiration: 86400000 # 24 hours in ms

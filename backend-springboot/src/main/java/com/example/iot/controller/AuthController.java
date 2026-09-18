@@ -5,6 +5,7 @@ import com.example.iot.dto.LoginResponse;
 import com.example.iot.entity.User;
 import com.example.iot.repository.UserRepository;
 import com.example.iot.security.JwtTokenProvider;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +29,7 @@ public class AuthController {
     private long jwtExpirationMs;
 
     @PostMapping("/login")
+    @SecurityRequirements
     public ResponseEntity<LoginResponse> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(

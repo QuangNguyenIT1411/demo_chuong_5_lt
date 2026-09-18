@@ -23,6 +23,7 @@ public class TelemetryService {
 
     private final TelemetryRepository telemetryRepository;
     private final DeviceRepository deviceRepository;
+    private final AlertService alertService;
 
     @Transactional
     public void processTelemetry(TelemetryPayload payload) {
@@ -31,14 +32,15 @@ public class TelemetryService {
         Optional<Device> deviceOpt = deviceRepository.findByDeviceId(payload.getDeviceId());
         if (deviceOpt.isPresent()) {
             Device device = deviceOpt.get();
-            device.setLastSeenAt(payload.getTimestamp());
+            ZonedDateTime receivedAt = ZonedDateTime.now();
+            device.setLastSeenAt(receivedAt);
             if (payload.getLed() != null) {
                 device.setLedState(payload.getLed());
             }
             if ("OFFLINE".equals(device.getStatus())) {
                 device.setStatus("ONLINE");
             }
-            device.setUpdatedAt(ZonedDateTime.now());
+            device.setUpdatedAt(receivedAt);
             deviceRepository.save(device);
 
             Telemetry telemetry = new Telemetry();
@@ -50,9 +52,10 @@ public class TelemetryService {
             telemetry.setSoilMoisture(payload.getSoilMoisture());
             telemetry.setLedState(payload.getLed());
             telemetry.setRecordedAt(payload.getTimestamp() != null ? payload.getTimestamp() : ZonedDateTime.now());
-            telemetry.setReceivedAt(ZonedDateTime.now());
+            telemetry.setReceivedAt(receivedAt);
             
             telemetryRepository.save(telemetry);
+            alertService.evaluateHighTemperature(payload.getDeviceId(), payload.getTemperature());
             log.info("Saved telemetry for device: {}", payload.getDeviceId());
         } else {
             log.warn("Telemetry received for unknown device: {}", payload.getDeviceId());
